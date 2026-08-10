@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agro Eco Consulting — Expertise agro &amp; environnement | Sénégal</title>
+<meta name="description" content="Agro Eco Consulting accompagne institutions, projets et organisations de producteurs en agriculture climato-intelligente, gestion durable des ressources naturelles et ingénierie de formation. Basé au Sénégal, intervention en Afrique de l'Ouest et centrale.">
+<meta name="theme-color" content="#0A4F33">
+<meta property="og:type" content="website">
+<meta property="og:title" content="le cabinet Agro Eco Consulting — Expertise agro &amp; environnement">
+<meta property="og:description" content="Agriculture climato-intelligente, gestion durable des ressources naturelles, formation et ingénierie de projets. Sénégal et Afrique de l'Ouest.">
+<meta property="og:image" content="{{ url_for('static', filename='images/logo.png') }}">
+<link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --vert:#0E7C4A; --vert-fonce:#0A4F33; --vert-clair:#E8F3ED;
+  --orange:#E2621F; --orange-clair:#FDF1E9;
+  --nuit:#10242F; --gris:#5A6B75; --creme:#F8F6F0; --blanc:#fff;
+  --ombre:0 2px 24px rgba(16,36,47,.08);
+  --rayon:14px;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; scroll-padding-top:78px; }
+body { font-family:'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif; color:var(--nuit);
+        background:var(--blanc); line-height:1.6; -webkit-font-smoothing:antialiased; }
+img { max-width:100%; display:block; }
+a { color:inherit; text-decoration:none; }
+.wrap { max-width:1140px; margin:0 auto; padding:0 24px; }
+.btn { display:inline-block; padding:13px 26px; border-radius:40px; font-weight:600;
+        font-size:15px; transition:.2s; border:2px solid transparent; cursor:pointer; }
+.btn-p { background:var(--orange); color:#fff; }
+.btn-p:hover { background:#c9531a; transform:translateY(-2px); }
+.btn-s { border-color:rgba(255,255,255,.5); color:#fff; }
+.btn-s:hover { background:rgba(255,255,255,.12); }
+.btn-v { background:var(--vert); color:#fff; }
+.btn-v:hover { background:var(--vert-fonce); }
+.titre-sec { font-size:34px; font-weight:700; line-height:1.15; color:var(--vert-fonce); }
+.sur-titre { display:inline-block; font-size:12px; font-weight:600; letter-spacing:.18em;
+              text-transform:uppercase; color:var(--orange); margin-bottom:12px; }
+.intro { color:var(--gris); font-size:17px; max-width:660px; margin-top:14px; }
+section { padding:84px 0; }
+
+/* ---------- EN-TETE ---------- */
+header { position:sticky; top:0; z-index:50; background:rgba(255,255,255,.96);
+          backdrop-filter:blur(8px); border-bottom:1px solid #e9e6de; }
+.nav { display:flex; align-items:center; gap:18px; height:78px; }
+.marque { display:flex; align-items:center; gap:12px; }
+.marque img { height:52px; width:auto; }
+.marque b { font-size:17px; font-weight:700; color:var(--vert-fonce); line-height:1.05; display:block; }
+.marque span { font-size:11px; color:var(--gris); letter-spacing:.06em; }
+nav ul { display:flex; gap:26px; list-style:none; margin-left:auto; }
+nav a { font-size:15px; font-weight:500; color:var(--nuit); padding:6px 0;
+         border-bottom:2px solid transparent; }
+nav a:hover { color:var(--vert); border-color:var(--vert); }
+.nav .btn { padding:10px 20px; font-size:14px; }
+.burger { display:none; margin-left:auto; background:none; border:0; font-size:26px;
+           color:var(--vert-fonce); cursor:pointer; line-height:1; }
+
+/* ---------- HERO ---------- */
+.hero { background:linear-gradient(150deg,#0A4F33 0%,#0E7C4A 100%); color:#fff;
+         padding:96px 0 0; position:relative; overflow:hidden; }
+.hero::after { content:''; position:absolute; right:-140px; top:-140px; width:460px; height:460px;
+                border-radius:50%; background:rgba(255,255,255,.05); }
+.hero h1 { font-size:50px; font-weight:700; line-height:1.08; max-width:780px; letter-spacing:-.02em; }
+.hero h1 em { font-style:normal; color:#8FE3B8; }
+.hero p { font-size:19px; font-weight:300; color:#D6EDE1; max-width:640px; margin-top:22px; }
+.hero .actions { display:flex; gap:14px; flex-wrap:wrap; margin-top:34px; }
+.chiffres { display:flex; gap:14px; flex-wrap:wrap; margin-top:64px;
+             border-top:1px solid rgba(255,255,255,.18); padding:28px 0 40px; }
+.chiffre { flex:1; min-width:170px; }
+.chiffre b { display:block; font-size:32px; font-weight:700; color:#8FE3B8; line-height:1; }
+.chiffre span { font-size:14px; color:#C6E4D6; }
+
+/* ---------- A PROPOS ---------- */
+.deux { display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center; }
+.photo-cadre { position:relative; }
+.photo-cadre img { border-radius:var(--rayon); box-shadow:var(--ombre); }
+.photo-cadre::before { content:''; position:absolute; inset:18px -18px -18px 18px;
+                        border:3px solid var(--orange); border-radius:var(--rayon); z-index:-1; }
+.liste { list-style:none; margin-top:22px; }
+.liste li { position:relative; padding-left:30px; margin-bottom:12px; color:var(--gris); }
+.liste li::before { content:''; position:absolute; left:0; top:9px; width:14px; height:14px;
+                     border-radius:4px; background:var(--vert-clair); border:3px solid var(--vert); }
+.liste li b { color:var(--nuit); font-weight:600; }
+
+/* ---------- EXPERTISE ---------- */
+.gris { background:var(--creme); }
+.cartes { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; margin-top:46px; }
+.carte { background:#fff; border-radius:var(--rayon); padding:30px 26px; box-shadow:var(--ombre);
+          border-top:4px solid var(--vert); transition:.2s; }
+.carte:hover { transform:translateY(-5px); }
+.carte:nth-child(3n+2) { border-top-color:var(--orange); }
+.carte .ic { width:52px; height:52px; border-radius:14px; background:var(--vert-clair);
+              display:flex; align-items:center; justify-content:center; margin-bottom:18px; }
+.carte:nth-child(3n+2) .ic { background:var(--orange-clair); }
+.carte .ic svg { width:26px; height:26px; fill:var(--vert); }
+.carte:nth-child(3n+2) .ic svg { fill:var(--orange); }
+.carte h3 { font-size:18px; font-weight:600; margin-bottom:10px; }
+.carte p { font-size:15px; color:var(--gris); }
+
+/* ---------- ATELIER ---------- */
+.atelier { background:var(--nuit); color:#fff; border-radius:22px; padding:52px;
+            display:grid; grid-template-columns:1.35fr 1fr; gap:44px; align-items:center; }
+.atelier .etiq { display:inline-block; background:var(--orange); color:#fff; font-size:12px;
+                  font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+                  padding:6px 14px; border-radius:30px; }
+.atelier h2 { font-size:32px; font-weight:700; line-height:1.15; margin:18px 0 14px; }
+.atelier p { color:#B9C6CE; }
+.infos { display:grid; gap:16px; }
+.info { background:rgba(255,255,255,.07); border-radius:12px; padding:16px 20px; }
+.info small { display:block; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+               color:#8FE3B8; margin-bottom:4px; }
+.info b { font-size:17px; font-weight:600; }
+
+/* ---------- APPROCHE ---------- */
+.etapes { display:grid; grid-template-columns:repeat(4,1fr); gap:24px; margin-top:46px; }
+.etape { position:relative; padding-top:16px; }
+.etape .n { font-size:44px; font-weight:700; color:var(--vert-clair); line-height:1; }
+.etape h3 { font-size:17px; font-weight:600; margin:8px 0 8px; }
+.etape p { font-size:15px; color:var(--gris); }
+
+/* ---------- SECTEURS ---------- */
+.puces { display:flex; flex-wrap:wrap; gap:11px; margin-top:30px; }
+.puce { background:#fff; border:1px solid #e3e0d7; border-radius:30px; padding:9px 20px;
+         font-size:14.5px; color:var(--nuit); }
+
+/* ---------- CONTACT ---------- */
+.contact { display:grid; grid-template-columns:1fr 1.15fr; gap:48px; }
+.coord { display:grid; gap:14px; margin-top:28px; }
+.coord a, .coord div { display:flex; gap:14px; align-items:flex-start;
+                        background:var(--creme); border-radius:12px; padding:16px 18px; }
+.coord .ic { width:38px; height:38px; border-radius:10px; background:var(--vert);
+              display:flex; align-items:center; justify-content:center; flex:0 0 38px; }
+.coord .ic svg { width:19px; height:19px; fill:#fff; }
+.coord small { display:block; font-size:12px; color:var(--gris); }
+.coord b { font-size:15.5px; font-weight:600; }
+form { background:var(--creme); border-radius:var(--rayon); padding:32px; }
+.champ { margin-bottom:16px; }
+.champ label { display:block; font-size:13.5px; font-weight:600; margin-bottom:6px; }
+.champ input, .champ textarea, .champ select {
+  width:100%; border:1px solid #ddd8cc; border-radius:10px; padding:12px 14px;
+  font-family:inherit; font-size:15px; background:#fff; }
+.champ textarea { min-height:120px; resize:vertical; }
+.champ input:focus, .champ textarea:focus, .champ select:focus {
+  outline:none; border-color:var(--vert); box-shadow:0 0 0 3px rgba(14,124,74,.12); }
+.note { font-size:12.5px; color:var(--gris); margin-top:12px; }
+
+/* ---------- PIED ---------- */
+footer { background:var(--vert-fonce); color:#C6E4D6; padding:56px 0 26px; font-size:14.5px; }
+.f-grille { display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:40px; }
+footer h4 { color:#fff; font-size:15px; font-weight:600; margin-bottom:14px; }
+footer ul { list-style:none; }
+footer li { margin-bottom:8px; }
+footer a:hover { color:#fff; }
+.f-bas { border-top:1px solid rgba(255,255,255,.15); margin-top:40px; padding-top:20px;
+          display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; font-size:13px; }
+.wa { position:fixed; right:20px; bottom:20px; width:56px; height:56px; border-radius:50%;
+       background:#25D366; display:flex; align-items:center; justify-content:center;
+       box-shadow:0 6px 20px rgba(0,0,0,.22); z-index:60; }
+.wa svg { width:30px; height:30px; fill:#fff; }
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width:900px) {
+  .cartes { grid-template-columns:repeat(2,1fr); }
+  .etapes { grid-template-columns:repeat(2,1fr); }
+  .deux, .contact, .atelier, .f-grille { grid-template-columns:1fr; gap:34px; }
+  .atelier { padding:36px 28px; }
+  .photo-cadre::before { display:none; }
+}
+@media (max-width:680px) {
+  section { padding:60px 0; }
+  .hero { padding-top:64px; }
+  .hero h1 { font-size:34px; }
+  .hero p { font-size:17px; }
+  .titre-sec { font-size:27px; }
+  .cartes, .etapes { grid-template-columns:1fr; }
+  .burger { display:block; }
+  nav { display:none; position:absolute; top:78px; left:0; right:0; background:#fff;
+         border-bottom:1px solid #e9e6de; padding:12px 24px 20px; }
+  nav.ouvert { display:block; }
+  nav ul { flex-direction:column; gap:2px; margin:0; }
+  nav li { border-bottom:1px solid #f0ede5; }
+  nav a { display:block; padding:13px 0; }
+  .nav > .btn { display:none; }
+  .marque b { font-size:15px; }
+  form { padding:24px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="marque" href="#accueil">
+      <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo Agro Eco Consulting">
+      <span><b>AGRO ECO CONSULTING</b><span>Expertise agro &amp; environnement</span></span>
+    </a>
+    <button class="burger" id="burger" aria-label="Menu">&#9776;</button>
+    <nav id="menu">
+      <ul>
+        <li><a href="#apropos">À propos</a></li>
+        <li><a href="#expertise">Expertise</a></li>
+        <li><a href="{{ url_for('index') }}">Formations</a></li>
+        <li><a href="#approche">Approche</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+    <a class="btn btn-s" href="{{ url_for('login') }}" style="border-color:var(--vert-fonce);color:var(--vert-fonce)">Espace étudiant</a>
+    <a class="btn btn-p" href="#contact">Nous contacter</a>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="accueil" style="padding-bottom:0">
+  <div class="wrap">
+    <h1>L'expertise agro-environnementale au service de la <em>résilience climatique</em></h1>
+    <p>Agro Eco Consulting accompagne les institutions, les projets de développement et les
+       organisations de producteurs dans la conception et la mise en œuvre de solutions agricoles
+       durables, au Sénégal et en Afrique de l'Ouest.</p>
+    <div class="actions">
+      <a class="btn btn-p" href="{{ url_for('index') }}">Nos formations en ligne</a>
+      <a class="btn btn-s" href="#expertise">Découvrir nos services</a>
+    </div>
+    <div class="chiffres">
+      <div class="chiffre"><b>5</b><span>domaines d'intervention</span></div>
+      <div class="chiffre"><b>5 pays</b><span>Sénégal, Mali, Guinée, Guinée-Bissau, RDC</span></div>
+      <div class="chiffre"><b>30</b><span>participants par session de formation</span></div>
+      <div class="chiffre"><b>100 %</b><span>de nos formations en situation réelle</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= A PROPOS ================= -->
+<section id="apropos">
+  <div class="wrap deux">
+    <div>
+      <span class="sur-titre">Qui sommes-nous</span>
+      <h2 class="titre-sec">Un cabinet d'ingénierie agricole et environnementale</h2>
+      <p class="intro">Agro Eco Consulting réunit des agronomes, des forestiers et des spécialistes
+        du développement rural autour d'une conviction simple : les solutions techniques existent,
+        c'est leur appropriation par les acteurs de terrain qui fait défaut.</p>
+      <ul class="liste">
+        <li><b>Ancrage local.</b> Une connaissance fine des zones agroécologiques sénégalaises,
+            de la vallée du fleuve à la Casamance.</li>
+        <li><b>Approche intégrée.</b> Nous traitons ensemble le climat, le sol, l'arbre et le
+            conseil au producteur, là où l'habitude est de les séparer.</li>
+        <li><b>Transfert de compétences.</b> Chaque mission se conclut par un plan d'action
+            que le commanditaire peut mettre en œuvre seul.</li>
+      </ul>
+    </div>
+    <div class="photo-cadre"><img src="{{ url_for('static', filename='images/plant.jpg') }}" alt="Plantation maraîchère sous irrigation goutte à goutte"></div>
+  </div>
+</section>
+
+<!-- ================= EXPERTISE ================= -->
+<section id="expertise" class="gris">
+  <div class="wrap">
+    <span class="sur-titre">Nos services</span>
+    <h2 class="titre-sec">Cinq domaines d'expertise</h2>
+    <p class="intro">De l'étude de faisabilité à la formation des agents de terrain, nous
+      intervenons sur l'ensemble du cycle des projets agricoles et environnementaux.</p>
+
+    <div class="cartes">
+      <div class="carte">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2C7 6 4 9 4 13a8 8 0 0 0 16 0c0-4-3-7-8-11zm0 18a6 6 0 0 1-6-6c0-2.7 2-5.1 6-8.6 4 3.5 6 5.9 6 8.6a6 6 0 0 1-6 6z"/></svg></div>
+        <h3>Agriculture climato-intelligente</h3>
+        <p>Diagnostic de vulnérabilité, sélection de pratiques adaptées, agroforesterie,
+           régénération naturelle assistée, agriculture de conservation et gestion de l'eau.</p>
+      </div>
+      <div class="carte">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16v2H4zm0 5h16v2H4zm0 5h10v2H4zm0 5h10v2H4zm12.5-3.5 4 4-1.4 1.4-4-4V21h-2v-5h5v2z"/></svg></div>
+        <h3>Études et diagnostics</h3>
+        <p>Études de faisabilité, évaluations environnementales, diagnostics de terroirs,
+           cartographie participative et états des lieux agro-écologiques.</p>
+      </div>
+      <div class="carte">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3 2 8l10 5 8-4v6h2V8L12 3zM6 13.2V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-3.8l-6 3-6-3z"/></svg></div>
+        <h3>Formation et renforcement de capacités</h3>
+        <p>Ingénierie pédagogique, formation de formateurs, ateliers nationaux et internationaux,
+           champs-écoles paysans et modules transférables en cascade.</p>
+      </div>
+      <div class="carte">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2zm-1 6h-3v3h-2V9H8V7h3V4h2v3h3z"/></svg></div>
+        <h3>Ingénierie de projets et financement</h3>
+        <p>Rédaction de termes de référence, montage de dossiers, recherche de bailleurs,
+           cadres logiques et dispositifs de suivi-évaluation.</p>
+      </div>
+      <div class="carte">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM6 17V9h2.5v8zm5 0V7h2.5v10zm5 0v-5h2.5v5z"/></svg></div>
+        <h3>Appui-conseil aux organisations</h3>
+        <p>Accompagnement des coopératives, faîtières et exploitations familiales : structuration,
+           itinéraires techniques, accès aux intrants et aux marchés.</p>
+      </div>
+      <div class="carte" style="border-top-color:var(--vert)">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 17.9V18h-2v1.9A8 8 0 0 1 4.1 13H6v-2H4.1A8 8 0 0 1 11 4.1V6h2V4.1A8 8 0 0 1 19.9 11H18v2h1.9A8 8 0 0 1 13 19.9zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg></div>
+        <h3>Services climatiques</h3>
+        <p>Traduction de l'information agro-météorologique en conseil opérationnel, calendriers
+           culturaux ajustés et outils d'aide à la décision pour les producteurs.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FORMATION PHARE ================= -->
+<section id="formation">
+  <div class="wrap">
+    <div class="atelier">
+      <div>
+        <span class="etiq">Prochaine session</span>
+        <h2>Atelier international — Agriculture climato-intelligente</h2>
+        <p>Dix jours de formation intensive réunissant techniciens agricoles et agents de
+          vulgarisation de plusieurs pays africains, autour des pratiques de terrain permettant
+          de produire durablement tout en réduisant la pression sur les forêts. Formation
+          résidentielle, visites de sites pédagogiques et attestation de participation.</p>
+        <div class="actions" style="margin-top:26px">
+          <a class="btn btn-p" href="#contact">Demander le programme</a>
+          <a class="btn btn-s" href="{{ url_for('index') }}">Voir nos formations en ligne</a>
+        </div>
+      </div>
+      <div class="infos">
+        <div class="info"><small>Dates</small><b>14 – 23 octobre 2026</b></div>
+        <div class="info"><small>Lieu</small><b>Thiès, Sénégal</b></div>
+        <div class="info"><small>Format</small><b>Présentiel, pension complète</b></div>
+        <div class="info"><small>Public</small><b>ONG, projets, techniciens, agents de l'État</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= APPROCHE ================= -->
+<section id="approche" class="gris">
+  <div class="wrap">
+    <span class="sur-titre">Notre méthode</span>
+    <h2 class="titre-sec">Quatre étapes, du diagnostic à l'autonomie</h2>
+    <div class="etapes">
+      <div class="etape"><div class="n">01</div><h3>Écouter et diagnostiquer</h3>
+        <p>Nous partons du terrain et des contraintes réelles des producteurs, pas d'un modèle importé.</p></div>
+      <div class="etape"><div class="n">02</div><h3>Concevoir avec vous</h3>
+        <p>Les solutions sont sélectionnées avec les acteurs concernés, selon leurs moyens et leur zone.</p></div>
+      <div class="etape"><div class="n">03</div><h3>Former et démontrer</h3>
+        <p>Chaque pratique est démontrée en situation réelle, jamais uniquement en salle.</p></div>
+      <div class="etape"><div class="n">04</div><h3>Suivre et transmettre</h3>
+        <p>Un accompagnement post-mission garantit que les acquis se traduisent en résultats durables.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SECTEURS ================= -->
+<section>
+  <div class="wrap deux">
+    <div class="photo-cadre"><img src="{{ url_for('static', filename='images/sol.jpg') }}" alt="Sol fertile travaillé à la main"></div>
+    <div>
+      <span class="sur-titre">Champs d'intervention</span>
+      <h2 class="titre-sec">Là où nous travaillons</h2>
+      <p class="intro">Nos interventions couvrent les principales zones agroécologiques du Sénégal
+        et s'étendent à la sous-région dans le cadre de programmes régionaux.</p>
+      <div class="puces">
+        <span class="puce">Bassin arachidier</span>
+        <span class="puce">Niayes</span>
+        <span class="puce">Vallée du fleuve Sénégal</span>
+        <span class="puce">Zone sylvopastorale</span>
+        <span class="puce">Sénégal Oriental</span>
+        <span class="puce">Casamance</span>
+        <span class="puce">Sahel</span>
+        <span class="puce">Afrique de l'Ouest</span>
+        <span class="puce">Bassin du Congo</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CONTACT ================= -->
+<section id="contact" class="gris">
+  <div class="wrap contact">
+    <div>
+      <span class="sur-titre">Contact</span>
+      <h2 class="titre-sec">Parlons de votre projet</h2>
+      <p class="intro">Étude, formation, appui-conseil ou montage de dossier : décrivez-nous
+        votre besoin, nous vous répondons sous 48 heures.</p>
+      <div class="coord">
+        <a href="tel:+221784873226">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.2 11 11 0 0 0 3.5.6 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11 11 0 0 0 .6 3.5 1 1 0 0 1-.3 1z"/></svg></span>
+          <span><small>Téléphone</small><b>+221 78 487 32 26</b></span></a>
+        <a href="https://wa.me/221788309501" target="_blank" rel="noopener">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2zm0 18a8 8 0 0 1-4.1-1.1l-.3-.2-3 .8.8-3-.2-.3A8 8 0 1 1 12 20zm4.4-5.8c-.2-.1-1.4-.7-1.6-.8s-.4-.1-.5.1-.6.8-.8 1-.3.2-.5 0a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.2-.4.6-1.2.1-.2 0-.4 0-.5l-.7-1.7c-.2-.4-.4-.4-.5-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.9 11.9 0 0 0 4.6 4c2.2.9 2.2.6 2.6.5a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .1-1.2z"/></svg></span>
+          <span><small>WhatsApp</small><b>+221 78 830 95 01</b></span></a>
+        <a href="mailto:agroecoconsult2025@gmail.com">
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4-8 5-8-5V6l8 5 8-5z"/></svg></span>
+          <span><small>E-mail</small><b>agroecoconsult2025@gmail.com</b></span></a>
+        <div>
+          <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"/></svg></span>
+          <span><small>Adresse</small><b>Thiès / Dakar, Sénégal</b></span></div>
+      </div>
+    </div>
+
+    <form id="formulaire">
+      <div class="champ"><label for="nom">Nom et prénom</label>
+        <input id="nom" name="nom" type="text" required placeholder="Votre nom"></div>
+      <div class="champ"><label for="structure">Structure</label>
+        <input id="structure" name="structure" type="text" placeholder="ONG, projet, entreprise…"></div>
+      <div class="champ"><label for="email">E-mail</label>
+        <input id="email" name="email" type="email" required placeholder="vous@exemple.com"></div>
+      <div class="champ"><label for="sujet">Votre demande concerne</label>
+        <select id="sujet" name="sujet">
+          <option>Une formation</option>
+          <option>Une étude ou un diagnostic</option>
+          <option>Un appui-conseil</option>
+          <option>Un montage de projet</option>
+          <option>Autre</option>
+        </select></div>
+      <div class="champ"><label for="message">Message</label>
+        <textarea id="message" name="message" required placeholder="Décrivez votre besoin en quelques lignes"></textarea></div>
+      <button class="btn btn-v" type="submit" style="width:100%">Envoyer le message</button>
+      <p class="note">Le formulaire ouvre votre logiciel de messagerie avec le message pré-rempli.
+        Pour un envoi automatique, voir le guide de mise en ligne fourni.</p>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="f-grille">
+      <div>
+        <h4>AGRO ECO CONSULTING</h4>
+        <p>Expertise agro &amp; environnement. Nous concevons et déployons des solutions
+           agricoles durables adaptées aux réalités du Sahel et de l'Afrique de l'Ouest.</p>
+      </div>
+      <div>
+        <h4>Navigation</h4>
+        <ul>
+          <li><a href="#apropos">À propos</a></li>
+          <li><a href="#expertise">Expertise</a></li>
+          <li><a href="{{ url_for('index') }}">Formations</a></li>
+          <li><a href="#approche">Approche</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <ul>
+          <li><a href="tel:+221784873226">+221 78 487 32 26</a></li>
+          <li><a href="https://wa.me/221788309501">+221 78 830 95 01 (WhatsApp)</a></li>
+          <li><a href="mailto:agroecoconsult2025@gmail.com">agroecoconsult2025@gmail.com</a></li>
+          <li>Thiès / Dakar, Sénégal</li>
+        </ul>
+      </div>
+    </div>
+    <div class="f-bas">
+      <span>© <span id="annee">2026</span> Agro Eco Consulting. Tous droits réservés.</span>
+      <span>Sénégal · Afrique de l'Ouest</span>
+    </div>
+  </div>
+</footer>
+
+<a class="wa" href="https://wa.me/221788309501" target="_blank" rel="noopener" aria-label="WhatsApp">
+  <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2zm4.4 12.2a2.7 2.7 0 0 1-1.8 1.2c-.4.1-.4.4-2.6-.5a11.9 11.9 0 0 1-4.6-4 5.2 5.2 0 0 1-1.1-2.7 3 3 0 0 1 .9-2.2 1 1 0 0 1 .7-.3h.5c.1 0 .3 0 .5.4l.7 1.7c0 .1.1.3 0 .5-.4.8-.8.8-.6 1.2a6.6 6.6 0 0 0 3.3 2.9c.2.2.3.2.5 0s.6-.8.8-1 .3-.2.5-.1 1.4.7 1.6.8a2.2 2.2 0 0 1-.1 1.2z"/></svg>
+</a>
+
+<script>
+  document.getElementById('annee').textContent = new Date().getFullYear();
+
+  var burger = document.getElementById('burger');
+  var menu = document.getElementById('menu');
+  burger.addEventListener('click', function () { menu.classList.toggle('ouvert'); });
+  menu.addEventListener('click', function (e) {
+    if (e.target.tagName === 'A') menu.classList.remove('ouvert');
+  });
+
+  // Formulaire -> ouverture du logiciel de messagerie
+  document.getElementById('formulaire').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var f = e.target;
+    var corps =
+      'Nom : ' + f.nom.value + '\n' +
+      'Structure : ' + f.structure.value + '\n' +
+      'E-mail : ' + f.email.value + '\n' +
+      'Objet : ' + f.sujet.value + '\n\n' +
+      f.message.value;
+    window.location.href = 'mailto:agroecoconsult2025@gmail.com'
+      + '?subject=' + encodeURIComponent('Demande site web — ' + f.sujet.value)
+      + '&body=' + encodeURIComponent(corps);
+  });
+</script>
+</body>
+</html>
