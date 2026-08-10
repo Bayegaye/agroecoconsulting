@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Étudiants{% endblock %}
+{% block content %}
+<h3 class="mb-4">Étudiants inscrits</h3>
+<div class="card card-course p-3">
+  <div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead><tr><th>Nom</th><th>Email</th><th>Téléphone</th><th>Formations validées</th><th>Inscrit le</th></tr></thead>
+    <tbody>
+    {% for u in liste %}
+      <tr>
+        <td>{{ u.full_name }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.phone or '—' }}</td>
+        <td>{{ u.enrollments.filter_by(status='validee').count() }}</td>
+        <td class="text-muted small">{{ u.created_at.strftime('%d/%m/%Y') }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="text-muted">Aucun étudiant inscrit pour le moment.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

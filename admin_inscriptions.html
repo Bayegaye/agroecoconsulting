@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Paiements / Inscriptions{% endblock %}
+{% block content %}
+<h3 class="mb-4">Paiements et inscriptions</h3>
+
+<form method="GET" class="mb-3">
+  <select name="statut" class="form-select form-select-sm" style="max-width:260px" onchange="this.form.submit()">
+    <option value="en_attente" {% if statut_filtre=='en_attente' %}selected{% endif %}>En attente de vérification</option>
+    <option value="validee" {% if statut_filtre=='validee' %}selected{% endif %}>Validées</option>
+    <option value="rejetee" {% if statut_filtre=='rejetee' %}selected{% endif %}>Rejetées</option>
+  </select>
+</form>
+
+<div class="card card-course p-3">
+  <div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr><th>Étudiant</th><th>Formation</th><th>Montant</th><th>Méthode</th><th>Téléphone</th><th>Référence</th><th>Date</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for e in liste %}
+      <tr>
+        <td>{{ e.student.full_name }}<div class="small text-muted">{{ e.student.email }}</div></td>
+        <td>{{ e.course.title if e.course else '—' }}</td>
+        <td>{{ '%.0f'|format(e.amount) }} FCFA</td>
+        <td>{{ payment_methods.get(e.payment_method, e.payment_method) }}</td>
+        <td>{{ e.payment_phone or '—' }}</td>
+        <td>{{ e.payment_reference }}</td>
+        <td class="text-muted small">{{ e.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+        <td class="d-flex gap-1">
+          {% if e.status == 'en_attente' %}
+          <form method="POST" action="{{ url_for('admin_valider_inscription', eid=e.id) }}" onsubmit="return confirm('Confirmer que le paiement a bien été reçu et débloquer l\'accès ?');">
+            <button class="btn btn-sm btn-success">Valider</button>
+          </form>
+          <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="collapse" data-bs-target="#rejet-{{ e.id }}">Rejeter</button>
+          {% elif e.status == 'validee' %}
+            <span class="badge bg-success">Validée{% if e.validated_by %} par {{ e.validated_by.full_name }}{% endif %}</span>
+          {% else %}
+            <span class="badge bg-danger">Rejetée</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% if e.status == 'en_attente' %}
+      <tr class="collapse" id="rejet-{{ e.id }}">
+        <td colspan="8">
+          <form method="POST" action="{{ url_for('admin_rejeter_inscription', eid=e.id) }}" class="d-flex gap-2">
+            <input type="text" name="note_admin" class="form-control form-control-sm" placeholder="Motif du rejet (optionnel, visible par l'étudiant)">
+            <button class="btn btn-sm btn-danger" onclick="return confirm('Rejeter cette inscription ?');">Confirmer le rejet</button>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
+    {% else %}
+      <tr><td colspan="8" class="text-muted">Aucune inscription dans cette catégorie.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}
