@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Résultat — {{ quiz.title }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card card-course p-4 text-center">
+      {% if attempt.passed %}
+        <div class="display-6 mb-2">✅</div>
+        <h4 class="text-success">Quiz réussi !</h4>
+      {% else %}
+        <div class="display-6 mb-2">🔁</div>
+        <h4 class="text-danger">Quiz non réussi</h4>
+      {% endif %}
+
+      <p class="text-muted">{{ lesson.title }} — {{ quiz.title }}</p>
+
+      <div class="my-3">
+        <span class="display-4 fw-bold">{{ attempt.score }}%</span>
+      </div>
+      <p>{{ attempt.correct_count }} bonne{{ 's' if attempt.correct_count > 1 else '' }} réponse{{ 's' if attempt.correct_count > 1 else '' }} sur {{ attempt.total_count }} (seuil de réussite : {{ quiz.pass_score }}%)</p>
+
+      <div class="d-flex gap-2 justify-content-center mt-3">
+        <a href="{{ url_for('passer_quiz', lid=lesson.id) }}" class="btn btn-outline-success">Repasser le quiz</a>
+        <a href="{{ url_for('apprendre', cid=formation.id) }}" class="btn btn-success">Retour à la formation</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

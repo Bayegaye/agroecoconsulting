@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ quiz.title }} — {{ lesson.title }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="mb-3">
+      <a href="{{ url_for('apprendre', cid=formation.id) }}" class="btn btn-outline-secondary btn-sm">← {{ formation.title }}</a>
+    </div>
+
+    <div class="card card-course p-4">
+      <h4>{{ quiz.title }}</h4>
+      <p class="text-muted">Leçon : {{ lesson.title }} · Seuil de réussite : {{ quiz.pass_score }}%</p>
+
+      {% if tentatives %}
+      <div class="alert alert-light border mb-3">
+        <strong>Vos tentatives précédentes :</strong>
+        {% for t in tentatives[:5] %}
+          <span class="badge {{ 'bg-success' if t.passed else 'bg-secondary' }} me-1">{{ t.score }}%</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if questions %}
+      <form method="POST">
+        {% for q in questions %}
+        <div class="mb-4">
+          <p class="fw-bold">{{ loop.index }}. {{ q.text }}</p>
+          {% for c in q.choices %}
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="question_{{ q.id }}" id="choice_{{ c.id }}" value="{{ c.id }}" required>
+            <label class="form-check-label" for="choice_{{ c.id }}">{{ c.text }}</label>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-success w-100">Valider mes réponses</button>
+      </form>
+      {% else %}
+      <div class="alert alert-info">Ce quiz ne contient pas encore de questions.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

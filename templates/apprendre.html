@@ -16,8 +16,18 @@
     </div>
   {% endif %}
   {% if l.document_url %}
-    <div>
+    <div class="mb-2">
       <a href="{{ l.document_url }}" target="_blank" class="btn btn-outline-secondary btn-sm">📄 {{ l.document_label or 'Télécharger le document' }}</a>
+    </div>
+  {% endif %}
+  {% if l.quiz %}
+    <div>
+      <a href="{{ url_for('passer_quiz', lid=l.id) }}" class="btn btn-warning btn-sm">📝 {{ l.quiz.title }}</a>
+      {% if l.id in meilleurs_scores %}
+        <span class="badge {{ 'bg-success' if meilleurs_scores[l.id].passed else 'bg-secondary' }} ms-1">
+          Meilleur score : {{ meilleurs_scores[l.id].score }}%
+        </span>
+      {% endif %}
     </div>
   {% endif %}
 </div>

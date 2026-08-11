@@ -6,7 +6,7 @@
 <div class="card card-course p-3">
   <div class="table-responsive">
   <table class="table table-hover align-middle">
-    <thead><tr><th>Formation</th><th>Montant</th><th>Méthode</th><th>Référence</th><th>Statut</th><th>Date</th><th></th></tr></thead>
+    <thead><tr><th>Formation</th><th>Montant</th><th>Méthode</th><th>Référence</th><th>Statut</th><th>Quiz</th><th>Date</th><th></th></tr></thead>
     <tbody>
     {% for e in inscriptions %}
       <tr>
@@ -24,6 +24,14 @@
             {% if e.note_admin %}<div class="small text-muted">{{ e.note_admin }}</div>{% endif %}
           {% endif %}
         </td>
+        <td>
+          {% if e.course_id in quiz_stats %}
+            {% set qs = quiz_stats[e.course_id] %}
+            <span class="badge {{ 'bg-success' if qs.reussis == qs.total else 'bg-secondary' }}">{{ qs.reussis }}/{{ qs.total }} réussis</span>
+          {% else %}
+            <span class="text-muted small">—</span>
+          {% endif %}
+        </td>
         <td class="text-muted small">{{ e.created_at.strftime('%d/%m/%Y') }}</td>
         <td>
           {% if e.status == 'validee' %}
@@ -34,7 +42,7 @@
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="7" class="text-muted">Vous n'êtes inscrit(e) à aucune formation pour le moment.</td></tr>
+      <tr><td colspan="8" class="text-muted">Vous n'êtes inscrit(e) à aucune formation pour le moment.</td></tr>
     {% endfor %}
     </tbody>
   </table>

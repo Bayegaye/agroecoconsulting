@@ -9,7 +9,7 @@ from flask_login import (
     LoginManager, login_user, logout_user, login_required, current_user
 )
 
-from models import db, User, Course, Lesson, Enrollment
+from models import db, User, Course, Lesson, Enrollment, Quiz, Question, Choice, QuizAttempt
 
 APP_NAME = os.environ.get("APP_NAME", "Agro Eco Consulting")
 CABINET_NAME = "Cabinet AgroEcoConsult"
@@ -242,7 +242,26 @@ def mes_formations():
         .order_by(Enrollment.created_at.desc())
         .all()
     )
-    return render_template("mes_formations.html", inscriptions=inscriptions)
+
+    quiz_stats = {}  # course_id -> {"reussis": int, "total": int}
+    for e in inscriptions:
+        if e.status != "validee" or not e.course:
+            continue
+        total = 0
+        reussis = 0
+        for l in e.course.lessons:
+            if l.quiz:
+                total += 1
+                meilleure = (
+                    QuizAttempt.query.filter_by(quiz_id=l.quiz.id, student_id=current_user.id)
+                    .order_by(QuizAttempt.score.desc()).first()
+                )
+                if meilleure and meilleure.passed:
+                    reussis += 1
+        if total:
+            quiz_stats[e.course_id] = {"reussis": reussis, "total": total}
+
+    return render_template("mes_formations.html", inscriptions=inscriptions, quiz_stats=quiz_stats)
 
 
 @app.route("/formations/<int:cid>/apprendre")
@@ -259,7 +278,80 @@ def apprendre(cid):
             flash("Vous n'avez pas (encore) accès à cette formation.", "danger")
             return redirect(url_for("formation_detail", cid=cid))
     lecons = formation.lessons.order_by(Lesson.position).all()
-    return render_template("apprendre.html", formation=formation, lecons=lecons)
+
+    meilleurs_scores = {}
+    if not current_user.is_admin:
+        for l in lecons:
+            if l.quiz:
+                meilleure = (
+                    QuizAttempt.query.filter_by(quiz_id=l.quiz.id, student_id=current_user.id)
+                    .order_by(QuizAttempt.score.desc()).first()
+                )
+                if meilleure:
+                    meilleurs_scores[l.id] = meilleure
+
+    return render_template(
+        "apprendre.html", formation=formation, lecons=lecons,
+        meilleurs_scores=meilleurs_scores,
+    )
+
+
+# ---------- Espace étudiant : quiz d'évaluation ----------
+
+def _acces_lecon_ok(lesson):
+    """Vérifie que l'utilisateur courant a accès à la leçon (admin, ou inscription validée)."""
+    if current_user.is_admin:
+        return True
+    return Enrollment.query.filter_by(
+        student_id=current_user.id, course_id=lesson.course_id, status="validee"
+    ).first() is not None
+
+
+@app.route("/lecons/<int:lid>/quiz", methods=["GET", "POST"])
+@login_required
+def passer_quiz(lid):
+    lesson = db.session.get(Lesson, lid)
+    if not lesson or not lesson.quiz:
+        abort(404)
+    if not _acces_lecon_ok(lesson):
+        flash("Vous n'avez pas (encore) accès à cette formation.", "danger")
+        return redirect(url_for("formation_detail", cid=lesson.course_id))
+
+    quiz = lesson.quiz
+    questions = quiz.questions.order_by(Question.position).all()
+
+    if request.method == "POST" and not current_user.is_admin:
+        correct_count = 0
+        for q in questions:
+            reponse = request.form.get(f"question_{q.id}")
+            if reponse is not None:
+                choix = db.session.get(Choice, int(reponse)) if reponse.isdigit() else None
+                if choix and choix.question_id == q.id and choix.is_correct:
+                    correct_count += 1
+        total = len(questions)
+        score = round((correct_count / total) * 100) if total else 0
+        attempt = QuizAttempt(
+            quiz_id=quiz.id, student_id=current_user.id, score=score,
+            correct_count=correct_count, total_count=total,
+            passed=score >= quiz.pass_score,
+        )
+        db.session.add(attempt)
+        db.session.commit()
+        return render_template(
+            "quiz_resultat.html", formation=lesson.course, lesson=lesson,
+            quiz=quiz, attempt=attempt,
+        )
+
+    dernieres_tentatives = []
+    if not current_user.is_admin:
+        dernieres_tentatives = (
+            QuizAttempt.query.filter_by(quiz_id=quiz.id, student_id=current_user.id)
+            .order_by(QuizAttempt.created_at.desc()).all()
+        )
+    return render_template(
+        "quiz.html", formation=lesson.course, lesson=lesson,
+        quiz=quiz, questions=questions, tentatives=dernieres_tentatives,
+    )
 
 
 # ---------- Administration : formations et leçons ----------
@@ -394,6 +486,103 @@ def admin_supprimer_lecon(lid):
         db.session.commit()
         flash("Leçon supprimée.", "info")
         return redirect(url_for("admin_formation_detail", cid=cid))
+    return redirect(url_for("admin_formations"))
+
+
+# ---------- Administration : quiz d'évaluation ----------
+
+@app.route("/admin/lecons/<int:lid>/quiz", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_quiz(lid):
+    lesson = db.session.get(Lesson, lid)
+    if not lesson:
+        abort(404)
+
+    if request.method == "POST":
+        title = request.form.get("title", "").strip() or "Quiz"
+        try:
+            pass_score = int(request.form.get("pass_score") or 70)
+        except ValueError:
+            pass_score = 70
+        pass_score = max(0, min(100, pass_score))
+
+        if lesson.quiz:
+            lesson.quiz.title = title
+            lesson.quiz.pass_score = pass_score
+        else:
+            db.session.add(Quiz(lesson_id=lesson.id, title=title, pass_score=pass_score))
+        db.session.commit()
+        flash("Quiz enregistré.", "success")
+        return redirect(url_for("admin_quiz", lid=lid))
+
+    questions = lesson.quiz.questions.order_by(Question.position).all() if lesson.quiz else []
+    return render_template("admin_quiz.html", lesson=lesson, formation=lesson.course, questions=questions)
+
+
+@app.route("/admin/lecons/<int:lid>/quiz/supprimer", methods=["POST"])
+@login_required
+@admin_required
+def admin_supprimer_quiz(lid):
+    lesson = db.session.get(Lesson, lid)
+    if not lesson:
+        abort(404)
+    if lesson.quiz:
+        db.session.delete(lesson.quiz)
+        db.session.commit()
+        flash("Quiz supprimé.", "info")
+    return redirect(url_for("admin_formation_detail", cid=lesson.course_id))
+
+
+@app.route("/admin/quiz/<int:qid>/questions", methods=["POST"])
+@login_required
+@admin_required
+def admin_ajouter_question(qid):
+    quiz = db.session.get(Quiz, qid)
+    if not quiz:
+        abort(404)
+    text = request.form.get("text", "").strip()
+    if not text:
+        flash("L'énoncé de la question est obligatoire.", "danger")
+        return redirect(url_for("admin_quiz", lid=quiz.lesson_id))
+
+    choix_textes = request.form.getlist("choice_text")
+    bonne_reponse = request.form.get("correct_choice")  # index (str) du choix correct
+
+    choix_valides = [(i, t.strip()) for i, t in enumerate(choix_textes) if t.strip()]
+    if len(choix_valides) < 2:
+        flash("Il faut au moins deux choix de réponse.", "danger")
+        return redirect(url_for("admin_quiz", lid=quiz.lesson_id))
+    if bonne_reponse is None or not any(str(i) == bonne_reponse for i, _ in choix_valides):
+        flash("Merci d'indiquer quelle réponse est correcte.", "danger")
+        return redirect(url_for("admin_quiz", lid=quiz.lesson_id))
+
+    position = (quiz.questions.count() or 0) + 1
+    question = Question(quiz_id=quiz.id, text=text, position=position)
+    db.session.add(question)
+    db.session.flush()  # pour obtenir question.id
+
+    for pos, (i, choice_text) in enumerate(choix_valides, start=1):
+        db.session.add(Choice(
+            question_id=question.id, text=choice_text,
+            is_correct=(str(i) == bonne_reponse), position=pos,
+        ))
+    db.session.commit()
+    flash("Question ajoutée.", "success")
+    return redirect(url_for("admin_quiz", lid=quiz.lesson_id))
+
+
+@app.route("/admin/questions/<int:qid>/supprimer", methods=["POST"])
+@login_required
+@admin_required
+def admin_supprimer_question(qid):
+    question = db.session.get(Question, qid)
+    if question:
+        lid = question.quiz.lesson_id
+        db.session.delete(question)
+        db.session.commit()
+        flash("Question supprimée.", "info")
+        return redirect(url_for("admin_quiz", lid=lid))
     return redirect(url_for("admin_formations"))
 
 

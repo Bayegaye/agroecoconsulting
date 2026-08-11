@@ -79,6 +79,11 @@
             <button class="btn btn-sm btn-outline-success" type="submit" title="Enregistrer">✏️</button>
             <button class="btn btn-sm btn-outline-danger" type="submit" formaction="{{ url_for('admin_supprimer_lecon', lid=l.id) }}" formnovalidate onclick="return confirm('Supprimer cette leçon ?');" title="Supprimer">✕</button>
           </div>
+          <div class="mb-2">
+            <a href="{{ url_for('admin_quiz', lid=l.id) }}" class="btn btn-sm {{ 'btn-outline-success' if l.quiz else 'btn-outline-secondary' }}">
+              {% if l.quiz %}📝 Quiz ({{ l.quiz.questions.count() }} question{{ 's' if l.quiz.questions.count() > 1 else '' }}){% else %}+ Ajouter un quiz{% endif %}
+            </a>
+          </div>
           <textarea name="content" class="form-control form-control-sm mb-2" rows="2" placeholder="Texte / instructions">{{ l.content or '' }}</textarea>
           <input type="text" name="video_url" value="{{ l.video_url or '' }}" class="form-control form-control-sm mb-2" placeholder="Lien vidéo">
           <div class="row g-2">

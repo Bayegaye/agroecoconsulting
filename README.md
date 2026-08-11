@@ -31,6 +31,10 @@ d'environnement `ADMIN_PASSWORD` avant le premier lancement).
   l'étudiant
 - Gestion des formations et des leçons (vidéo en lien, document en lien,
   texte) depuis l'espace admin
+- Évaluation des formations par quiz : l'administrateur crée un quiz (QCM)
+  par leçon avec un seuil de réussite ; l'étudiant inscrit et validé peut
+  passer le quiz autant de fois qu'il le souhaite, voit son score
+  immédiatement, et retrouve le résultat de ses quiz dans « Mes formations »
 - Suivi des étudiants inscrits
 
 ### Pourquoi une confirmation manuelle du paiement ?

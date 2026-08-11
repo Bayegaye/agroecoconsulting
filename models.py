@@ -67,6 +67,63 @@ class Lesson(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class Quiz(db.Model):
+    """Quiz d'évaluation associé à une leçon (QCM)."""
+    __tablename__ = "quizzes"
+    id = db.Column(db.Integer, primary_key=True)
+    lesson_id = db.Column(db.Integer, db.ForeignKey("lessons.id"), nullable=False, unique=True)
+    title = db.Column(db.String(160), nullable=False, default="Quiz")
+    pass_score = db.Column(db.Integer, nullable=False, default=70)  # % requis pour "réussi"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    lesson = db.relationship("Lesson", backref=db.backref("quiz", uselist=False, cascade="all, delete-orphan"))
+    questions = db.relationship(
+        "Question", backref="quiz", lazy="dynamic",
+        order_by="Question.position", cascade="all, delete-orphan"
+    )
+    attempts = db.relationship("QuizAttempt", backref="quiz", lazy="dynamic", cascade="all, delete-orphan")
+
+
+class Question(db.Model):
+    """Une question à choix multiples d'un quiz."""
+    __tablename__ = "questions"
+    id = db.Column(db.Integer, primary_key=True)
+    quiz_id = db.Column(db.Integer, db.ForeignKey("quizzes.id"), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    position = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    choices = db.relationship(
+        "Choice", backref="question", lazy="dynamic",
+        order_by="Choice.position", cascade="all, delete-orphan"
+    )
+
+
+class Choice(db.Model):
+    """Un choix de réponse pour une question (une seule bonne réponse par question)."""
+    __tablename__ = "choices"
+    id = db.Column(db.Integer, primary_key=True)
+    question_id = db.Column(db.Integer, db.ForeignKey("questions.id"), nullable=False)
+    text = db.Column(db.String(300), nullable=False)
+    is_correct = db.Column(db.Boolean, default=False)
+    position = db.Column(db.Integer, nullable=False, default=0)
+
+
+class QuizAttempt(db.Model):
+    """Une tentative d'un étudiant sur un quiz (essais illimités)."""
+    __tablename__ = "quiz_attempts"
+    id = db.Column(db.Integer, primary_key=True)
+    quiz_id = db.Column(db.Integer, db.ForeignKey("quizzes.id"), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    score = db.Column(db.Integer, nullable=False)  # % (0-100)
+    correct_count = db.Column(db.Integer, nullable=False, default=0)
+    total_count = db.Column(db.Integer, nullable=False, default=0)
+    passed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    student = db.relationship("User", backref=db.backref("quiz_attempts", lazy="dynamic"))
+
+
 class Enrollment(db.Model):
     """Inscription d'un étudiant à une formation, avec suivi du paiement.
 
