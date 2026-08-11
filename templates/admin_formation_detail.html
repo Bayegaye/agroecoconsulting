@@ -90,6 +90,21 @@
             </div>
           </div>
         </form>
+        <div class="mt-2 d-flex align-items-center gap-2">
+          {% if l.evaluation %}
+            <span class="badge {% if l.evaluation.type == 'quiz' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+              {{ 'Quiz' if l.evaluation.type == 'quiz' else 'Devoir' }} : {{ l.evaluation.title }}
+            </span>
+            <a href="{{ url_for('admin_evaluation_lecon', lid=l.id) }}" class="btn btn-sm btn-outline-primary">Modifier l'évaluation</a>
+            <form method="POST" action="{{ url_for('admin_supprimer_evaluation', lid=l.id) }}" onsubmit="return confirm('Supprimer cette évaluation ? La leçon ne bloquera plus la suite.');">
+              <button class="btn btn-sm btn-outline-danger">Supprimer l'évaluation</button>
+            </form>
+          {% else %}
+            <a href="{{ url_for('admin_evaluation_lecon', lid=l.id) }}" class="btn btn-sm btn-outline-primary">
+              + Ajouter un quiz ou un devoir à cette leçon
+            </a>
+          {% endif %}
+        </div>
       </div>
       {% else %}
       <p class="text-muted mb-0">Aucune leçon pour l'instant.</p>

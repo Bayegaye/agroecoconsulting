@@ -34,6 +34,7 @@
         {% if current_user.is_authenticated and current_user.is_admin %}
         <li class="nav-item"><a class="nav-link {% if request.endpoint in ['admin_formations','admin_formation_detail'] %}active{% endif %}" href="{{ url_for('admin_formations') }}">Gérer les formations</a></li>
         <li class="nav-item"><a class="nav-link {% if request.endpoint=='admin_inscriptions' %}active{% endif %}" href="{{ url_for('admin_inscriptions') }}">Paiements / Inscriptions</a></li>
+        <li class="nav-item"><a class="nav-link {% if request.endpoint=='admin_evaluations' %}active{% endif %}" href="{{ url_for('admin_evaluations') }}">Évaluations à corriger</a></li>
         <li class="nav-item"><a class="nav-link {% if request.endpoint=='admin_etudiants' %}active{% endif %}" href="{{ url_for('admin_etudiants') }}">Étudiants</a></li>
         {% endif %}
       </ul>

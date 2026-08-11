@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Évaluation — {{ lecon.title }}{% endblock %}
+{% block content %}
+{% set questions = evaluation.questions.all() if evaluation else [] %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3>Évaluation de la leçon « {{ lecon.title }} »</h3>
+  <a href="{{ url_for('admin_formation_detail', cid=lecon.course_id) }}" class="btn btn-outline-secondary btn-sm">← Retour à la formation</a>
+</div>
+
+<div class="alert alert-light border small">
+  Tant que la soumission d'un étudiant pour cette évaluation n'est pas <strong>validée par un administrateur</strong>
+  (menu « Évaluations à corriger »), les leçons suivantes de la formation restent verrouillées pour lui.
+</div>
+
+<div class="card card-course p-4">
+  <form method="POST" id="eval-form">
+    <div class="mb-3">
+      <label class="form-label d-block">Type d'évaluation</label>
+      <div class="btn-group" role="group">
+        <input type="radio" class="btn-check" name="type" id="type-quiz" value="quiz" autocomplete="off"
+          {% if not evaluation or evaluation.type == 'quiz' %}checked{% endif %}>
+        <label class="btn btn-outline-success" for="type-quiz">Quiz (choix multiples, correction auto)</label>
+
+        <input type="radio" class="btn-check" name="type" id="type-devoir" value="devoir" autocomplete="off"
+          {% if evaluation and evaluation.type == 'devoir' %}checked{% endif %}>
+        <label class="btn btn-outline-success" for="type-devoir">Devoir à rendre (correction manuelle)</label>
+      </div>
+    </div>
+
+    <div class="mb-2">
+      <label class="form-label">Titre de l'évaluation</label>
+      <input type="text" name="title" class="form-control" value="{{ evaluation.title if evaluation else '' }}" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Consigne / énoncé</label>
+      <textarea name="instructions" class="form-control" rows="3">{{ evaluation.instructions if evaluation else '' }}</textarea>
+    </div>
+
+    <div id="section-quiz">
+      <div class="mb-3" style="max-width:280px">
+        <label class="form-label">Seuil de réussite indicatif (%)</label>
+        <input type="number" min="0" max="100" name="seuil_reussite" class="form-control"
+          value="{{ evaluation.seuil_reussite if evaluation else 50 }}">
+        <div class="form-text">À titre indicatif seulement : la validation reste toujours manuelle.</div>
+      </div>
+
+      <label class="form-label">Questions</label>
+      <div id="questions-container">
+        {% for i in range(max_questions) %}
+          {% set q = questions[i] if i < questions|length else None %}
+          {% set opts = q.options.all() if q else [] %}
+          <div class="border rounded p-3 mb-2 question-block" id="question-block-{{ i }}" {% if not q and i >= (questions|length + 1) %}style="display:none"{% endif %}>
+            <label class="form-label small text-muted">Question {{ i + 1 }}</label>
+            <textarea name="question_text_{{ i }}" class="form-control form-control-sm mb-2" rows="2" placeholder="Énoncé de la question">{{ q.text if q else '' }}</textarea>
+            {% for j in range(max_options) %}
+              {% set opt = opts[j] if j < opts|length else None %}
+              <div class="input-group input-group-sm mb-1">
+                <span class="input-group-text">
+                  <input type="radio" name="correct_answer_{{ i }}" value="{{ j }}" {% if opt and opt.is_correct %}checked{% endif %}>
+                </span>
+                <input type="text" name="option_{{ i }}_{{ j }}" class="form-control" placeholder="Choix {{ j + 1 }}" value="{{ opt.text if opt else '' }}">
+              </div>
+            {% endfor %}
+            <div class="form-text">Cochez le bouton radio devant la bonne réponse.</div>
+          </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="btn btn-outline-success btn-sm" id="ajouter-question">+ Ajouter une question</button>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+      <button type="submit" class="btn btn-success">Enregistrer l'évaluation</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var typeQuiz = document.getElementById('type-quiz');
+  var typeDevoir = document.getElementById('type-devoir');
+  var sectionQuiz = document.getElementById('section-quiz');
+
+  function toggleSection() {
+    sectionQuiz.style.display = typeQuiz.checked ? '' : 'none';
+  }
+  typeQuiz.addEventListener('change', toggleSection);
+  typeDevoir.addEventListener('change', toggleSection);
+  toggleSection();
+
+  var blocks = Array.from(document.querySelectorAll('.question-block'));
+  var prochainIndexCache = blocks.findIndex(function (b) { return b.style.display === 'none'; });
+
+  document.getElementById('ajouter-question').addEventListener('click', function () {
+    if (prochainIndexCache === -1) {
+      alert("Nombre maximum de questions atteint pour cette évaluation.");
+      return;
+    }
+    blocks[prochainIndexCache].style.display = '';
+    prochainIndexCache = blocks.findIndex(function (b, idx) { return idx > prochainIndexCache && b.style.display === 'none'; });
+  });
+});
+</script>
+{% endblock %}

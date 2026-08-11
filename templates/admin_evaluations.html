@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Évaluations à corriger{% endblock %}
+{% block content %}
+<h3 class="mb-4">Évaluations à corriger</h3>
+
+<form method="GET" class="mb-3">
+  <select name="statut" class="form-select form-select-sm" style="max-width:260px" onchange="this.form.submit()">
+    <option value="en_attente" {% if statut_filtre=='en_attente' %}selected{% endif %}>En attente de correction</option>
+    <option value="validee" {% if statut_filtre=='validee' %}selected{% endif %}>Validées</option>
+    <option value="rejetee" {% if statut_filtre=='rejetee' %}selected{% endif %}>Rejetées</option>
+  </select>
+</form>
+
+{% for s in liste %}
+<div class="card card-course p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <strong>{{ s.student.full_name }}</strong> <span class="text-muted small">{{ s.student.email }}</span><br>
+      <span class="text-muted small">
+        {{ s.evaluation.lesson.course.title }} → leçon « {{ s.evaluation.lesson.title }} » —
+        {{ 'Quiz' if s.evaluation.type == 'quiz' else 'Devoir' }} : {{ s.evaluation.title }}
+      </span><br>
+      <span class="text-muted small">Soumis le {{ s.submitted_at.strftime('%d/%m/%Y %H:%M') }}</span>
+    </div>
+    <div class="text-end">
+      {% if s.status == 'en_attente' %}
+        <span class="badge bg-warning text-dark">En attente</span>
+      {% elif s.status == 'validee' %}
+        <span class="badge bg-success">Validée</span>
+      {% else %}
+        <span class="badge bg-danger">Rejetée</span>
+      {% endif %}
+      {% if s.score is not none %}
+        <div class="small mt-1">Note : <strong>{{ '%.0f'|format(s.score) }}/100</strong></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <hr>
+
+  {% if s.evaluation.type == 'quiz' %}
+    <div class="small">
+      {% for r in s.reponses %}
+        <div class="mb-1">
+          <strong>{{ loop.index }}. {{ r.question.text }}</strong><br>
+          {% for opt in r.question.options %}
+            <span class="{% if opt.is_correct %}text-success fw-bold{% elif r.option_id == opt.id %}text-danger{% endif %}">
+              {% if r.option_id == opt.id %}➤ {% endif %}{{ opt.text }}{% if opt.is_correct %} ✓{% endif %}
+            </span><br>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    {% if s.devoir_reponse %}
+      <p class="mb-2"><strong>Réponse :</strong><br>{{ s.devoir_reponse }}</p>
+    {% endif %}
+    {% if s.devoir_lien %}
+      <p class="mb-2"><a href="{{ s.devoir_lien }}" target="_blank">📎 Voir le fichier rendu</a></p>
+    {% endif %}
+  {% endif %}
+
+  {% if s.status == 'en_attente' %}
+    <form method="POST" action="{{ url_for('admin_valider_soumission', sid=s.id) }}" class="row g-2 align-items-end mt-2">
+      <div class="col-md-3">
+        <label class="form-label small">Note (sur 100, optionnel)</label>
+        <input type="number" min="0" max="100" name="score" class="form-control form-control-sm" value="{{ s.score if s.score is not none else '' }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small">Commentaire (optionnel, visible par l'étudiant)</label>
+        <input type="text" name="admin_feedback" class="form-control form-control-sm">
+      </div>
+      <div class="col-md-3">
+        <button class="btn btn-success btn-sm w-100" onclick="return confirm('Valider cette soumission et débloquer la suite pour l\'étudiant ?');">
+          Valider et débloquer la suite
+        </button>
+      </div>
+    </form>
+    <form method="POST" action="{{ url_for('admin_rejeter_soumission', sid=s.id) }}" class="row g-2 align-items-end mt-2">
+      <div class="col-md-9">
+        <input type="text" name="admin_feedback" class="form-control form-control-sm" placeholder="Motif du rejet (visible par l'étudiant, pour l'aider à corriger)">
+      </div>
+      <div class="col-md-3">
+        <button class="btn btn-outline-danger btn-sm w-100" onclick="return confirm('Rejeter cette soumission ?');">Rejeter</button>
+      </div>
+    </form>
+  {% elif s.admin_feedback %}
+    <div class="text-muted small mt-2"><strong>Commentaire :</strong> {{ s.admin_feedback }}</div>
+  {% endif %}
+</div>
+{% else %}
+<div class="alert alert-info">Aucune soumission dans cette catégorie.</div>
+{% endfor %}
+{% endblock %}
