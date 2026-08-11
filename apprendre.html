@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ formation.title }} — Contenu{% endblock %}
+{% block content %}
+<h3 class="mb-1">{{ formation.title }}</h3>
+<p class="text-muted mb-4">{{ formation.description }}</p>
+
+{% for l in lecons %}
+<div class="card card-course p-4 mb-3">
+  <h5>{{ loop.index }}. {{ l.title }}</h5>
+  {% if l.content %}
+    <p>{{ l.content }}</p>
+  {% endif %}
+  {% if l.video_url %}
+    <div class="mb-2">
+      <a href="{{ l.video_url }}" target="_blank" class="btn btn-outline-success btn-sm">▶ Regarder la vidéo</a>
+    </div>
+  {% endif %}
+  {% if l.document_url %}
+    <div>
+      <a href="{{ l.document_url }}" target="_blank" class="btn btn-outline-secondary btn-sm">📄 {{ l.document_label or 'Télécharger le document' }}</a>
+    </div>
+  {% endif %}
+</div>
+{% else %}
+<div class="alert alert-info">Le contenu de cette formation sera ajouté prochainement.</div>
+{% endfor %}
+{% endblock %}
