@@ -3,13 +3,16 @@ from datetime import datetime
 from functools import wraps
 
 from flask import (
-    Flask, render_template, redirect, url_for, request, flash, abort
+    Flask, render_template, redirect, url_for, request, flash, abort, Response
 )
 from flask_login import (
     LoginManager, login_user, logout_user, login_required, current_user
 )
+from sqlalchemy import inspect, text
 
 from models import db, User, Course, Lesson, Enrollment, Quiz, Question, Choice, QuizAttempt
+
+DOCUMENT_MAX_SIZE_MO = 20
 
 APP_NAME = os.environ.get("APP_NAME", "Agro Eco Consulting")
 CABINET_NAME = "Cabinet AgroEcoConsult"
@@ -45,6 +48,7 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "agroeco-formation-secre
 app.config["SQLALCHEMY_DATABASE_URI"] = _database_uri()
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SESSION_COOKIE_SECURE"] = IS_PRODUCTION
+app.config["MAX_CONTENT_LENGTH"] = DOCUMENT_MAX_SIZE_MO * 1024 * 1024
 
 if IS_PRODUCTION and app.config["SECRET_KEY"] == "agroeco-formation-secret-key-change-en-production":
     raise RuntimeError(
@@ -55,10 +59,42 @@ if IS_PRODUCTION and app.config["SECRET_KEY"] == "agroeco-formation-secret-key-c
 
 db.init_app(app)
 
+
+def _ensure_column(inspector, table, column, ddl_type="TEXT"):
+    """Ajoute une colonne à une table existante si elle manque encore —
+    db.create_all() ne crée que les tables absentes, il ne modifie jamais une
+    table déjà présente en base. Sans effet (et sûr à ré-exécuter) si la
+    colonne existe déjà."""
+    if table not in inspector.get_table_names():
+        return
+    colonnes = {c["name"] for c in inspector.get_columns(table)}
+    if column not in colonnes:
+        with db.engine.begin() as conn:
+            conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}"))
+
+
+def _ensure_schema_upgrades():
+    """Applique en base les petites évolutions de schéma qui ne sont pas gérées par
+    db.create_all() (compatible SQLite en local et PostgreSQL en production) :
+    ajoute les colonnes permettant de stocker un PDF uploadé directement sur
+    une leçon (en plus du lien externe déjà existant)."""
+    inspector = inspect(db.engine)
+    _ensure_column(inspector, "lessons", "document_data", "BYTEA" if IS_PRODUCTION else "BLOB")
+    _ensure_column(inspector, "lessons", "document_filename", "VARCHAR(255)")
+    _ensure_column(inspector, "lessons", "document_mimetype", "VARCHAR(100)")
+
+
 with app.app_context():
     db.create_all()
+    _ensure_schema_upgrades()
     from seed import ensure_seed_data
     ensure_seed_data(verbose=False)
+
+
+@app.errorhandler(413)
+def _fichier_trop_volumineux(e):
+    flash(f"Le fichier est trop volumineux (maximum {DOCUMENT_MAX_SIZE_MO} Mo).", "danger")
+    return redirect(request.referrer or url_for("admin_formations")), 302
 
 login_manager = LoginManager()
 login_manager.login_view = "login"
@@ -97,7 +133,7 @@ def accueil():
 
 @app.route("/formations")
 def index():
-    formations = Course.query.filter_by(published=True).order_by(Course.created_at.desc()).all()
+    formations = Course.query.filter_by(published=True).order_by(Course.created_at.asc()).all()
     mes_statuts = {}
     if current_user.is_authenticated and not current_user.is_admin:
         for e in Enrollment.query.filter_by(student_id=current_user.id).all():
@@ -382,6 +418,23 @@ def admin_formations():
     return render_template("admin_formations.html", liste=liste)
 
 
+def _appliquer_document_upload(lesson):
+    """Lit le fichier PDF envoyé (champ 'document_file') et le stocke sur la
+    leçon. Retourne un message d'erreur (str) si le fichier n'est pas un PDF,
+    sinon None. N'a aucun effet si aucun fichier n'a été sélectionné."""
+    fichier = request.files.get("document_file")
+    if not fichier or not fichier.filename:
+        return None
+    nom = fichier.filename
+    type_mime = fichier.mimetype or "application/pdf"
+    if type_mime != "application/pdf" and not nom.lower().endswith(".pdf"):
+        return "Seuls les fichiers PDF sont acceptés pour le document d'une leçon."
+    lesson.document_data = fichier.read()
+    lesson.document_filename = nom
+    lesson.document_mimetype = "application/pdf"
+    return None
+
+
 @app.route("/admin/formations/<int:cid>", methods=["GET", "POST"])
 @login_required
 @admin_required
@@ -406,6 +459,10 @@ def admin_formation_detail(cid):
                 video_url=video_url, document_url=document_url,
                 document_label=document_label, position=position,
             )
+            erreur = _appliquer_document_upload(lesson)
+            if erreur:
+                flash(erreur, "danger")
+                return redirect(url_for("admin_formation_detail", cid=cid))
             db.session.add(lesson)
             db.session.commit()
             flash("Leçon ajoutée.", "success")
@@ -470,9 +527,34 @@ def admin_modifier_lecon(lid):
     lesson.video_url = request.form.get("video_url", "").strip()
     lesson.document_url = request.form.get("document_url", "").strip()
     lesson.document_label = request.form.get("document_label", "").strip()
+    if request.form.get("remove_document") == "on":
+        lesson.document_data = None
+        lesson.document_filename = None
+        lesson.document_mimetype = None
+    erreur = _appliquer_document_upload(lesson)
+    if erreur:
+        flash(erreur, "danger")
+        return redirect(url_for("admin_formation_detail", cid=lesson.course_id))
     db.session.commit()
     flash("Leçon mise à jour.", "success")
     return redirect(url_for("admin_formation_detail", cid=lesson.course_id))
+
+
+@app.route("/lecons/<int:lid>/document")
+@login_required
+def telecharger_document_lecon(lid):
+    lesson = db.session.get(Lesson, lid)
+    if not lesson or not lesson.document_data:
+        abort(404)
+    if not _acces_lecon_ok(lesson):
+        flash("Vous n'avez pas (encore) accès à cette formation.", "danger")
+        return redirect(url_for("formation_detail", cid=lesson.course_id))
+    nom = lesson.document_filename or "document.pdf"
+    return Response(
+        lesson.document_data,
+        mimetype=lesson.document_mimetype or "application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{nom}"'},
+    )
 
 
 @app.route("/admin/lecons/<int:lid>/supprimer", methods=["POST"])
