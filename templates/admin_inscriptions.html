@@ -23,7 +23,10 @@
         <td>{{ e.student.full_name }}<div class="small text-muted">{{ e.student.email }}</div></td>
         <td>{{ e.course.title if e.course else '—' }}</td>
         <td>{{ '%.0f'|format(e.amount) }} FCFA</td>
-        <td>{{ payment_methods.get(e.payment_method, e.payment_method) }}</td>
+        <td>
+          {{ payment_methods.get(e.payment_method, e.payment_method) }}
+          {% if e.payment_source in ['cinetpay', 'paydunya'] %}<span class="badge bg-info text-dark">auto</span>{% endif %}
+        </td>
         <td>{{ e.payment_phone or '—' }}</td>
         <td>{{ e.payment_reference }}</td>
         <td class="text-muted small">{{ e.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
@@ -34,7 +37,11 @@
           </form>
           <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="collapse" data-bs-target="#rejet-{{ e.id }}">Rejeter</button>
           {% elif e.status == 'validee' %}
-            <span class="badge bg-success">Validée{% if e.validated_by %} par {{ e.validated_by.full_name }}{% endif %}</span>
+            {% if e.validated_by %}
+            <span class="badge bg-success">Validée par {{ e.validated_by.full_name }}</span>
+            {% else %}
+            <span class="badge bg-success">Validée automatiquement</span>
+            {% endif %}
           {% else %}
             <span class="badge bg-danger">Rejetée</span>
           {% endif %}

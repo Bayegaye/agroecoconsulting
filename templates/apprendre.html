@@ -15,7 +15,11 @@
       <a href="{{ l.video_url }}" target="_blank" class="btn btn-outline-success btn-sm">▶ Regarder la vidéo</a>
     </div>
   {% endif %}
-  {% if l.document_url %}
+  {% if l.document_filename %}
+    <div class="mb-2">
+      <a href="{{ url_for('telecharger_document_lecon', lid=l.id) }}" target="_blank" class="btn btn-outline-secondary btn-sm">📄 {{ l.document_label or l.document_filename }}</a>
+    </div>
+  {% elif l.document_url %}
     <div class="mb-2">
       <a href="{{ l.document_url }}" target="_blank" class="btn btn-outline-secondary btn-sm">📄 {{ l.document_label or 'Télécharger le document' }}</a>
     </div>

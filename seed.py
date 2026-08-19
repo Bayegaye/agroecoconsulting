@@ -1,10 +1,10 @@
 import os
 import secrets
 from models import db, User
- 
+
 DEFAULT_ADMIN_EMAIL = "admin@agroecoconsult.sn"
- 
- 
+
+
 def _mot_de_passe_genere():
     """Mot de passe aléatoire utilisé UNIQUEMENT si la variable d'environnement
     ADMIN_PASSWORD n'est pas définie (ex. exécution locale rapide). Il n'est
@@ -12,12 +12,12 @@ def _mot_de_passe_genere():
     une seule fois dans les logs du serveur. En production, définissez
     toujours ADMIN_PASSWORD dans les variables d'environnement."""
     return secrets.token_urlsafe(12)
- 
- 
+
+
 def ensure_seed_data(verbose=False):
     admin = User.query.filter_by(email=DEFAULT_ADMIN_EMAIL).first()
     admin_password_env = os.environ.get("ADMIN_PASSWORD")
- 
+
     if not admin:
         admin_password = admin_password_env or _mot_de_passe_genere()
         admin = User(
@@ -42,4 +42,3 @@ def ensure_seed_data(verbose=False):
             if verbose or not admin_password_env:
                 print(f"Mot de passe admin réinitialisé : {new_password}")
     db.session.commit()
- 

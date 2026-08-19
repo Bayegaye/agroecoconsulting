@@ -63,6 +63,9 @@ class Lesson(db.Model):
     video_url = db.Column(db.String(500))  # ex: lien YouTube non répertorié / Vimeo (optionnel)
     document_url = db.Column(db.String(500))  # ex: lien Google Drive / Dropbox vers un PDF (optionnel)
     document_label = db.Column(db.String(160))  # ex: "Support de cours (PDF)"
+    document_data = db.Column(db.LargeBinary)  # contenu binaire du PDF uploadé depuis l'admin (optionnel)
+    document_filename = db.Column(db.String(255))  # nom original du fichier PDF uploadé
+    document_mimetype = db.Column(db.String(100))  # type MIME du fichier uploadé (ex: application/pdf)
     position = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -127,23 +130,43 @@ class QuizAttempt(db.Model):
 class Enrollment(db.Model):
     """Inscription d'un étudiant à une formation, avec suivi du paiement.
 
-    Le paiement est confirmé manuellement : l'étudiant indique comment et
-    avec quelle référence il a payé (Wave, Orange Money, Free Money,
-    virement...), puis un administrateur vérifie et valide (ou rejette)
-    l'inscription depuis l'espace admin. L'accès au contenu de la formation
-    n'est débloqué qu'une fois le statut passé à 'validee'."""
+    Plusieurs circuits de paiement coexistent :
+
+    - Automatique (payment_source='paydunya') : l'étudiant paie via PayDunya
+      (Wave, Orange Money, Free Money, carte bancaire). Le paiement est
+      confirmé côté serveur (voir /paiement/paydunya/notify dans app.py),
+      sans intervention humaine : le statut passe directement à 'validee' dès
+      confirmation par l'API PayDunya. C'est le circuit automatique actif par
+      défaut (voir PAYDUNYA.md).
+    - Automatique (payment_source='cinetpay') : identique via CinetPay (voir
+      /paiement/cinetpay/notify). Conservé dans le code mais inactif tant que
+      CinetPay n'a pas rétabli son service au Sénégal (voir CINETPAY.md) —
+      peut être réactivé plus tard simplement en configurant ses clés.
+    - Manuel (payment_source='manuel', comportement historique) : l'étudiant
+      indique lui-même comment et avec quelle référence il a payé, puis un
+      administrateur vérifie et valide (ou rejette) l'inscription depuis
+      l'espace admin. Conservé en secours (ex: virement bancaire).
+
+    Dans tous les cas, l'accès au contenu de la formation n'est débloqué
+    qu'une fois le statut passé à 'validee'."""
     __tablename__ = "enrollments"
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
     amount = db.Column(db.Float, nullable=False)  # prix au moment de l'inscription
     payment_method = db.Column(db.String(30), nullable=False)  # wave | orange_money | free_money | virement | autre
-    payment_reference = db.Column(db.String(120))  # référence / n° de transaction communiqué par l'étudiant
+    payment_reference = db.Column(db.String(120))  # référence / n° de transaction (manuel) ou id gateway (auto)
     payment_phone = db.Column(db.String(32))  # numéro utilisé pour le paiement
     status = db.Column(db.String(20), nullable=False, default="en_attente")  # en_attente | validee | rejetee
     note_admin = db.Column(db.String(300))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     validated_at = db.Column(db.DateTime)
     validated_by_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+
+    # Champs liés aux paiements automatiques (laissés à None pour les
+    # inscriptions au circuit manuel historique).
+    payment_source = db.Column(db.String(10), nullable=False, default="manuel")  # manuel | cinetpay | paydunya
+    cinetpay_transaction_id = db.Column(db.String(64), unique=True)  # identifiant unique envoyé à CinetPay
+    paydunya_token = db.Column(db.String(80), unique=True)  # token de facture renvoyé par PayDunya
 
     validated_by = db.relationship("User", foreign_keys=[validated_by_id])

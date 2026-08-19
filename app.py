@@ -1,7 +1,9 @@
 import os
+import secrets
 from datetime import datetime
 from functools import wraps
 
+import requests
 from flask import (
     Flask, render_template, redirect, url_for, request, flash, abort, Response
 )
@@ -24,6 +26,61 @@ PAYMENT_METHODS = [
     ("virement", "Virement bancaire"),
     ("autre", "Autre"),
 ]
+
+# ---------- Paiement automatique CinetPay ----------
+# CinetPay permet d'encaisser Wave, Orange Money, Free Money et carte
+# bancaire via une page de paiement hébergée, avec confirmation automatique
+# côté serveur par webhook (voir /paiement/cinetpay/notify plus bas) — sans
+# validation manuelle par un administrateur. Le circuit manuel historique
+# (formulaire "j'ai déjà payé, voici ma référence") reste disponible en
+# secours, notamment pour le virement bancaire que CinetPay ne couvre pas.
+#
+# Pour activer ce circuit : créer un compte marchand sur https://cinetpay.com,
+# récupérer la clé API et le SITE ID dans le tableau de bord ("Intégrations"),
+# puis définir les variables d'environnement CINETPAY_API_KEY et
+# CINETPAY_SITE_ID (voir .env.example). Tant qu'elles ne sont pas définies,
+# le bouton de paiement automatique reste masqué et seul le circuit manuel
+# est proposé — le site fonctionne donc normalement avant toute config.
+CINETPAY_API_KEY = os.environ.get("CINETPAY_API_KEY", "")
+CINETPAY_SITE_ID = os.environ.get("CINETPAY_SITE_ID", "")
+CINETPAY_API_BASE = "https://api-checkout.cinetpay.com/v2"
+CINETPAY_ENABLED = bool(CINETPAY_API_KEY and CINETPAY_SITE_ID)
+
+# ---------- Paiement automatique PayDunya ----------
+# Même principe que CinetPay ci-dessus (confirmation automatique par webhook,
+# sans validation manuelle), via PayDunya — opérationnel au Sénégal, Bénin,
+# Burkina Faso, Côte d'Ivoire, Mali et Togo. C'est le circuit automatique
+# actif par défaut sur ce site (CinetPay est conservé en réserve, voir plus
+# haut, en attendant le rétablissement de son service au Sénégal).
+#
+# Pour activer : créer un compte marchand sur https://paydunya.com, récupérer
+# les 3 clés (master key, private key, token) dans le tableau de bord
+# ("Compte > API"), puis définir PAYDUNYA_MASTER_KEY, PAYDUNYA_PRIVATE_KEY et
+# PAYDUNYA_TOKEN (voir .env.example et PAYDUNYA.md). Tant qu'elles ne sont pas
+# définies, le bouton de paiement automatique reste masqué.
+#
+# PAYDUNYA_MODE contrôle l'environnement : "test" (par défaut, aucun vrai
+# paiement) ou "live" (paiements réels). Il faut le mettre explicitement à
+# "live" pour encaisser de l'argent réel — ce choix volontaire évite
+# d'accepter des paiements réels par erreur avant d'avoir testé le circuit.
+PAYDUNYA_MASTER_KEY = os.environ.get("PAYDUNYA_MASTER_KEY", "")
+PAYDUNYA_PRIVATE_KEY = os.environ.get("PAYDUNYA_PRIVATE_KEY", "")
+PAYDUNYA_TOKEN = os.environ.get("PAYDUNYA_TOKEN", "")
+PAYDUNYA_MODE = os.environ.get("PAYDUNYA_MODE", "test").strip().lower()
+PAYDUNYA_API_BASE = (
+    "https://app.paydunya.com/api/v1" if PAYDUNYA_MODE == "live"
+    else "https://app.paydunya.com/sandbox-api/v1"
+)
+PAYDUNYA_ENABLED = bool(PAYDUNYA_MASTER_KEY and PAYDUNYA_PRIVATE_KEY and PAYDUNYA_TOKEN)
+
+
+def _paydunya_headers():
+    return {
+        "Content-Type": "application/json",
+        "PAYDUNYA-MASTER-KEY": PAYDUNYA_MASTER_KEY,
+        "PAYDUNYA-PRIVATE-KEY": PAYDUNYA_PRIVATE_KEY,
+        "PAYDUNYA-TOKEN": PAYDUNYA_TOKEN,
+    }
 
 
 def _database_uri():
@@ -77,11 +134,16 @@ def _ensure_schema_upgrades():
     """Applique en base les petites évolutions de schéma qui ne sont pas gérées par
     db.create_all() (compatible SQLite en local et PostgreSQL en production) :
     ajoute les colonnes permettant de stocker un PDF uploadé directement sur
-    une leçon (en plus du lien externe déjà existant)."""
+    une leçon (en plus du lien externe déjà existant), ainsi que les colonnes
+    liées aux paiements automatiques (CinetPay, PayDunya) sur les
+    inscriptions."""
     inspector = inspect(db.engine)
     _ensure_column(inspector, "lessons", "document_data", "BYTEA" if IS_PRODUCTION else "BLOB")
     _ensure_column(inspector, "lessons", "document_filename", "VARCHAR(255)")
     _ensure_column(inspector, "lessons", "document_mimetype", "VARCHAR(100)")
+    _ensure_column(inspector, "enrollments", "payment_source", "VARCHAR(10) DEFAULT 'manuel'")
+    _ensure_column(inspector, "enrollments", "cinetpay_transaction_id", "VARCHAR(64)")
+    _ensure_column(inspector, "enrollments", "paydunya_token", "VARCHAR(80)")
 
 
 with app.app_context():
@@ -155,6 +217,7 @@ def formation_detail(cid):
     return render_template(
         "formation_detail.html", formation=formation, lecons=lecons,
         mon_inscription=mon_inscription, payment_methods=PAYMENT_METHODS,
+        cinetpay_enabled=CINETPAY_ENABLED, paydunya_enabled=PAYDUNYA_ENABLED,
     )
 
 
@@ -254,6 +317,7 @@ def inscrire(cid):
         payment_method=payment_method,
         payment_reference=payment_reference,
         payment_phone=payment_phone,
+        payment_source="manuel",
         status="en_attente",
     )
     db.session.add(e)
@@ -263,6 +327,394 @@ def inscrire(cid):
         "dès que votre paiement aura été vérifié par notre équipe.",
         "success",
     )
+    return redirect(url_for("mes_formations"))
+
+
+# ---------- Paiement automatique (CinetPay) ----------
+#
+# Circuit qui remplace la vérification manuelle par une confirmation
+# automatique côté serveur : /formations/<cid>/payer-cinetpay initie le
+# paiement et redirige l'étudiant vers la page CinetPay hébergée ; CinetPay
+# rappelle ensuite /paiement/cinetpay/notify (webhook) pour confirmer, ce qui
+# valide l'inscription sans action d'un administrateur. /paiement/cinetpay/
+# retour affiche un retour immédiat à l'étudiant après son passage sur la
+# page de paiement (au cas où le webhook mettrait quelques secondes à
+# arriver).
+
+def _cinetpay_check_transaction(transaction_id):
+    """Interroge l'API CinetPay pour connaître le statut réel d'une
+    transaction. Ne jamais se fier au seul appel webhook entrant (CinetPay
+    recommande explicitement de revérifier via cet endpoint pour éviter toute
+    notification falsifiée). Retourne 'ACCEPTED', 'REFUSED', ou None si le
+    statut n'est pas encore déterminé ou en cas d'erreur réseau."""
+    try:
+        resp = requests.post(
+            f"{CINETPAY_API_BASE}/payment/check",
+            json={
+                "apikey": CINETPAY_API_KEY,
+                "site_id": CINETPAY_SITE_ID,
+                "transaction_id": transaction_id,
+            },
+            timeout=15,
+        )
+        data = resp.json()
+    except (requests.RequestException, ValueError) as exc:
+        app.logger.error("CinetPay: échec de vérification de %s : %s", transaction_id, exc)
+        return None
+    if data.get("code") != "00":
+        return None
+    return data.get("data", {}).get("status")  # ACCEPTED | REFUSED | ...
+
+
+def _cinetpay_apply_status(enrollment, cp_status):
+    """Met à jour une inscription selon le statut renvoyé par CinetPay.
+    Idempotent : ne fait rien si l'inscription a déjà été traitée (statut
+    différent de 'en_attente'), pour supporter sans risque un webhook reçu
+    plusieurs fois et un appel depuis /retour en plus de /notify."""
+    if enrollment.status != "en_attente":
+        return
+    if cp_status == "ACCEPTED":
+        enrollment.status = "validee"
+        enrollment.validated_at = datetime.utcnow()
+        enrollment.note_admin = "Paiement confirmé automatiquement via CinetPay."
+        db.session.commit()
+    elif cp_status == "REFUSED":
+        enrollment.status = "rejetee"
+        enrollment.note_admin = "Paiement refusé ou annulé (CinetPay)."
+        db.session.commit()
+    # Tout autre statut (en attente côté CinetPay, etc.) : on ne touche à
+    # rien, un prochain appel (webhook suivant ou nouveau /retour) retentera.
+
+
+@app.route("/formations/<int:cid>/payer-cinetpay", methods=["POST"])
+@login_required
+def payer_cinetpay(cid):
+    if current_user.is_admin:
+        flash("Un compte administrateur ne peut pas s'inscrire à une formation.", "danger")
+        return redirect(url_for("formation_detail", cid=cid))
+    if not CINETPAY_ENABLED:
+        flash("Le paiement en ligne automatique n'est pas encore activé sur ce site.", "danger")
+        return redirect(url_for("formation_detail", cid=cid))
+
+    formation = db.session.get(Course, cid)
+    if not formation or not formation.published:
+        abort(404)
+
+    existante = Enrollment.query.filter(
+        Enrollment.student_id == current_user.id,
+        Enrollment.course_id == cid,
+        Enrollment.status.in_(["en_attente", "validee"]),
+    ).first()
+    if existante:
+        flash("Vous avez déjà une inscription en cours ou validée pour cette formation.", "info")
+        return redirect(url_for("formation_detail", cid=cid))
+
+    # CinetPay exige un montant multiple de 5 (XOF) ; les prix du catalogue
+    # le sont déjà normalement, mais on arrondit par sécurité.
+    amount = int(round(formation.price / 5.0) * 5)
+
+    e = Enrollment(
+        student_id=current_user.id,
+        course_id=formation.id,
+        amount=formation.price,
+        payment_method="cinetpay",
+        payment_source="cinetpay",
+        status="en_attente",
+    )
+    db.session.add(e)
+    db.session.flush()  # attribue e.id sans clôturer la transaction
+
+    transaction_id = f"ENR{e.id}-{secrets.token_hex(4)}"
+    prenom, _, nom = current_user.full_name.partition(" ")
+
+    try:
+        resp = requests.post(
+            f"{CINETPAY_API_BASE}/payment",
+            json={
+                "apikey": CINETPAY_API_KEY,
+                "site_id": CINETPAY_SITE_ID,
+                "transaction_id": transaction_id,
+                "amount": amount,
+                "currency": "XOF",
+                "description": f"Formation : {formation.title}"[:255],
+                "notify_url": url_for("cinetpay_notify", _external=True),
+                "return_url": url_for("cinetpay_retour", eid=e.id, _external=True),
+                "channels": "ALL",
+                "customer_name": prenom or current_user.full_name,
+                "customer_surname": nom,
+                "customer_email": current_user.email,
+                "customer_phone_number": current_user.phone or "",
+            },
+            timeout=20,
+        )
+        data = resp.json()
+    except (requests.RequestException, ValueError) as exc:
+        db.session.rollback()
+        app.logger.error("CinetPay: échec d'initialisation du paiement : %s", exc)
+        flash(
+            "Le paiement en ligne n'a pas pu être initié pour le moment. "
+            "Vous pouvez réessayer, ou utiliser le paiement manuel ci-dessous.",
+            "danger",
+        )
+        return redirect(url_for("formation_detail", cid=cid))
+
+    payment_url = data.get("data", {}).get("payment_url")
+    if data.get("code") != "201" or not payment_url:
+        db.session.rollback()
+        app.logger.error("CinetPay: réponse inattendue à l'initialisation : %s", data)
+        flash(
+            "Le paiement en ligne n'a pas pu être initié (" + str(data.get("message", "erreur inconnue")) + "). "
+            "Vous pouvez réessayer, ou utiliser le paiement manuel ci-dessous.",
+            "danger",
+        )
+        return redirect(url_for("formation_detail", cid=cid))
+
+    e.cinetpay_transaction_id = transaction_id
+    e.payment_reference = transaction_id
+    db.session.commit()
+    return redirect(payment_url)
+
+
+@app.route("/paiement/cinetpay/notify", methods=["GET", "POST"])
+def cinetpay_notify():
+    """Webhook appelé par CinetPay pour confirmer un paiement. Doit répondre
+    200 dans tous les cas pour accuser réception (CinetPay retentera sinon).
+    On ne fait jamais confiance au contenu de la notification elle-même : on
+    revérifie systématiquement via l'API /payment/check, comme recommandé
+    par CinetPay pour éviter toute notification falsifiée."""
+    transaction_id = request.values.get("cpm_trans_id") or request.values.get("transaction_id")
+    if not transaction_id:
+        return "", 200
+    enrollment = Enrollment.query.filter_by(cinetpay_transaction_id=transaction_id).first()
+    if not enrollment:
+        return "", 200
+    cp_status = _cinetpay_check_transaction(transaction_id)
+    if cp_status:
+        _cinetpay_apply_status(enrollment, cp_status)
+    return "", 200
+
+
+@app.route("/paiement/cinetpay/retour/<int:eid>")
+@login_required
+def cinetpay_retour(eid):
+    """Page de retour après le passage de l'étudiant sur la page de paiement
+    CinetPay (succès, échec ou abandon). Revérifie une fois le statut tout de
+    suite pour un retour immédiat, au cas où le webhook mettrait quelques
+    secondes à arriver — sans effet si /notify a déjà traité l'inscription."""
+    enrollment = db.session.get(Enrollment, eid)
+    if not enrollment or enrollment.student_id != current_user.id:
+        abort(404)
+    if enrollment.status == "en_attente" and enrollment.cinetpay_transaction_id:
+        cp_status = _cinetpay_check_transaction(enrollment.cinetpay_transaction_id)
+        if cp_status:
+            _cinetpay_apply_status(enrollment, cp_status)
+
+    if enrollment.status == "validee":
+        flash("Paiement confirmé, bienvenue dans la formation !", "success")
+    elif enrollment.status == "rejetee":
+        flash(
+            "Le paiement n'a pas abouti (refusé ou annulé). Vous pouvez réessayer.",
+            "danger",
+        )
+    else:
+        flash(
+            "Paiement en cours de confirmation. L'accès à la formation sera débloqué "
+            "automatiquement dès sa validation (généralement en quelques instants).",
+            "info",
+        )
+    return redirect(url_for("mes_formations"))
+
+
+# ---------- Paiement automatique (PayDunya) ----------
+#
+# Même principe que le circuit CinetPay ci-dessus : /formations/<cid>/payer-
+# paydunya crée une facture PayDunya et redirige l'étudiant vers la page de
+# paiement hébergée ; PayDunya rappelle ensuite /paiement/paydunya/notify
+# (callback IPN) pour confirmer, ce qui valide l'inscription sans action d'un
+# administrateur. /paiement/paydunya/retour affiche un retour immédiat à
+# l'étudiant après son passage sur la page de paiement.
+
+def _paydunya_check_status(token):
+    """Interroge l'API PayDunya pour connaître le statut réel d'une facture,
+    par son token. Comme pour CinetPay, on ne fait jamais confiance au seul
+    contenu du callback IPN entrant (qui peut être falsifié) : on revérifie
+    systématiquement ici. Retourne 'completed', 'cancelled', 'failed', ou
+    None si le statut n'a pas pu être déterminé (ex. erreur réseau)."""
+    try:
+        resp = requests.get(
+            f"{PAYDUNYA_API_BASE}/checkout-invoice/confirm/{token}",
+            headers=_paydunya_headers(),
+            timeout=15,
+        )
+        data = resp.json()
+    except (requests.RequestException, ValueError) as exc:
+        app.logger.error("PayDunya: échec de vérification de %s : %s", token, exc)
+        return None
+    if data.get("response_code") != "00":
+        return None
+    status = data.get("status")
+    return status.lower() if isinstance(status, str) else status
+
+
+def _paydunya_apply_status(enrollment, pd_status):
+    """Met à jour une inscription selon le statut renvoyé par PayDunya.
+    Idempotent : ne fait rien si l'inscription a déjà été traitée (statut
+    différent de 'en_attente'), pour supporter sans risque un callback reçu
+    plusieurs fois et un appel depuis /retour en plus de /notify."""
+    if enrollment.status != "en_attente":
+        return
+    if pd_status == "completed":
+        enrollment.status = "validee"
+        enrollment.validated_at = datetime.utcnow()
+        enrollment.note_admin = "Paiement confirmé automatiquement via PayDunya."
+        db.session.commit()
+    elif pd_status in ("cancelled", "failed"):
+        enrollment.status = "rejetee"
+        enrollment.note_admin = "Paiement refusé ou annulé (PayDunya)."
+        db.session.commit()
+    # 'pending' ou statut inconnu : on ne touche à rien, un prochain appel
+    # (callback suivant ou nouveau /retour) retentera.
+
+
+@app.route("/formations/<int:cid>/payer-paydunya", methods=["POST"])
+@login_required
+def payer_paydunya(cid):
+    if current_user.is_admin:
+        flash("Un compte administrateur ne peut pas s'inscrire à une formation.", "danger")
+        return redirect(url_for("formation_detail", cid=cid))
+    if not PAYDUNYA_ENABLED:
+        flash("Le paiement en ligne automatique n'est pas encore activé sur ce site.", "danger")
+        return redirect(url_for("formation_detail", cid=cid))
+
+    formation = db.session.get(Course, cid)
+    if not formation or not formation.published:
+        abort(404)
+
+    existante = Enrollment.query.filter(
+        Enrollment.student_id == current_user.id,
+        Enrollment.course_id == cid,
+        Enrollment.status.in_(["en_attente", "validee"]),
+    ).first()
+    if existante:
+        flash("Vous avez déjà une inscription en cours ou validée pour cette formation.", "info")
+        return redirect(url_for("formation_detail", cid=cid))
+
+    e = Enrollment(
+        student_id=current_user.id,
+        course_id=formation.id,
+        amount=formation.price,
+        payment_method="paydunya",
+        payment_source="paydunya",
+        status="en_attente",
+    )
+    db.session.add(e)
+    db.session.flush()  # attribue e.id sans clôturer la transaction
+
+    try:
+        resp = requests.post(
+            f"{PAYDUNYA_API_BASE}/checkout-invoice/create",
+            headers=_paydunya_headers(),
+            json={
+                "invoice": {
+                    "total_amount": int(round(formation.price)),
+                    "description": f"Formation : {formation.title}"[:255],
+                    "customer": {
+                        "name": current_user.full_name,
+                        "email": current_user.email,
+                        "phone": current_user.phone or "",
+                    },
+                },
+                "store": {"name": CABINET_NAME},
+                "custom_data": {"enrollment_id": e.id},
+                "actions": {
+                    "cancel_url": url_for("formation_detail", cid=cid, _external=True),
+                    "return_url": url_for("paydunya_retour", eid=e.id, _external=True),
+                    "callback_url": url_for("paydunya_notify", _external=True),
+                },
+            },
+            timeout=20,
+        )
+        data = resp.json()
+    except (requests.RequestException, ValueError) as exc:
+        db.session.rollback()
+        app.logger.error("PayDunya: échec d'initialisation du paiement : %s", exc)
+        flash(
+            "Le paiement en ligne n'a pas pu être initié pour le moment. "
+            "Vous pouvez réessayer, ou utiliser le paiement manuel ci-dessous.",
+            "danger",
+        )
+        return redirect(url_for("formation_detail", cid=cid))
+
+    payment_url = data.get("response_text")
+    token = data.get("token")
+    if data.get("response_code") != "00" or not payment_url or not token:
+        db.session.rollback()
+        app.logger.error("PayDunya: réponse inattendue à l'initialisation : %s", data)
+        flash(
+            "Le paiement en ligne n'a pas pu être initié. "
+            "Vous pouvez réessayer, ou utiliser le paiement manuel ci-dessous.",
+            "danger",
+        )
+        return redirect(url_for("formation_detail", cid=cid))
+
+    e.paydunya_token = token
+    e.payment_reference = token
+    db.session.commit()
+    return redirect(payment_url)
+
+
+@app.route("/paiement/paydunya/notify", methods=["GET", "POST"])
+def paydunya_notify():
+    """Callback IPN appelé par PayDunya pour confirmer un paiement. Doit
+    répondre 200 (avec un corps "OK", comme demandé par la documentation
+    PayDunya) dans tous les cas pour accuser réception. On ne fait jamais
+    confiance au contenu du callback lui-même : on revérifie systématiquement
+    via l'API /checkout-invoice/confirm, comme pour CinetPay, afin d'éviter
+    toute notification falsifiée."""
+    token = (
+        request.values.get("data[invoice][token]")
+        or request.values.get("token")
+        or request.values.get("invoice_token")
+    )
+    if not token:
+        return "OK", 200
+    enrollment = Enrollment.query.filter_by(paydunya_token=token).first()
+    if not enrollment:
+        return "OK", 200
+    pd_status = _paydunya_check_status(token)
+    if pd_status:
+        _paydunya_apply_status(enrollment, pd_status)
+    return "OK", 200
+
+
+@app.route("/paiement/paydunya/retour/<int:eid>")
+@login_required
+def paydunya_retour(eid):
+    """Page de retour après le passage de l'étudiant sur la page de paiement
+    PayDunya (succès, échec ou abandon). Revérifie une fois le statut tout de
+    suite pour un retour immédiat, au cas où le callback mettrait quelques
+    secondes à arriver — sans effet si /notify a déjà traité l'inscription."""
+    enrollment = db.session.get(Enrollment, eid)
+    if not enrollment or enrollment.student_id != current_user.id:
+        abort(404)
+    if enrollment.status == "en_attente" and enrollment.paydunya_token:
+        pd_status = _paydunya_check_status(enrollment.paydunya_token)
+        if pd_status:
+            _paydunya_apply_status(enrollment, pd_status)
+
+    if enrollment.status == "validee":
+        flash("Paiement confirmé, bienvenue dans la formation !", "success")
+    elif enrollment.status == "rejetee":
+        flash(
+            "Le paiement n'a pas abouti (refusé ou annulé). Vous pouvez réessayer.",
+            "danger",
+        )
+    else:
+        flash(
+            "Paiement en cours de confirmation. L'accès à la formation sera débloqué "
+            "automatiquement dès sa validation (généralement en quelques instants).",
+            "info",
+        )
     return redirect(url_for("mes_formations"))
 
 
@@ -679,9 +1131,12 @@ def admin_inscriptions():
     if statut_filtre in ("en_attente", "validee", "rejetee"):
         q = q.filter_by(status=statut_filtre)
     liste = q.order_by(Enrollment.created_at.desc()).all()
+    payment_methods_display = dict(PAYMENT_METHODS)
+    payment_methods_display["cinetpay"] = "Paiement en ligne (CinetPay)"
+    payment_methods_display["paydunya"] = "Paiement en ligne (PayDunya)"
     return render_template(
         "admin_inscriptions.html", liste=liste, statut_filtre=statut_filtre,
-        payment_methods=dict(PAYMENT_METHODS),
+        payment_methods=payment_methods_display,
     )
 
 
